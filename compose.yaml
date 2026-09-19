@@ -3,23 +3,36 @@ services:
     build: .
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/milestone
+      DB_USER: milestone
+      DB_PASSWORD: milestone
+      PORT: "8080"
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "8080:8080"
+    restart: unless-stopped
+    # 应用启动时自动执行数据库迁移（db/migration），随后开放流量
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: milestone
       POSTGRES_PASSWORD: milestone
       POSTGRES_DB: milestone
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U milestone -d milestone"]
       interval: 2s
       timeout: 2s
       retries: 15
     volumes:
+      # 数据卷持久化：容器重启后账本、审计游标（序列）与幂等记录全部保留
       - milestone-data:/var/lib/postgresql/data
 volumes:
   milestone-data:
